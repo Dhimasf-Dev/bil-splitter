@@ -22,7 +22,6 @@ import {
   ListOrdered,
   CreditCard,
   ChevronDown,
-  Minus,
 } from "lucide-react";
 
 const PRESET_COLORS = [
@@ -123,6 +122,32 @@ export default function Home() {
     localStorage.setItem("bill_splitter_deductions", JSON.stringify(deductions));
   }, [people, items, bundleTotal, splitMode, paymentAccounts, deductions, isLoaded]);
 
+  // Auto-populate 2 members when total bill or items are added and no members exist
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!isLoaded) return;
+    if ((bundleTotal > 0 || items.length > 0) && people.length === 0) {
+      const color1 = PRESET_COLORS[0];
+      const color2 = PRESET_COLORS[1];
+      const id1 = `p-${Date.now()}-1`;
+      const id2 = `p-${Date.now()}-2`;
+      const p1 = { id: id1, name: "", color: color1 };
+      const p2 = { id: id2, name: "", color: color2 };
+      setPeople([p1, p2]);
+
+      // Assign the new people to existing items
+      setItems((prev) =>
+        prev.map((it) => {
+          const newAssigned = [...it.assignedTo];
+          if (!newAssigned.includes(id1)) newAssigned.push(id1);
+          if (!newAssigned.includes(id2)) newAssigned.push(id2);
+          return { ...it, assignedTo: newAssigned };
+        })
+      );
+    }
+  }, [bundleTotal, items, people.length, isLoaded]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   // Clear data handler
   const clearData = () => {
     setPeople([]);
@@ -199,7 +224,7 @@ export default function Home() {
         } else {
           let grandTotal = findTotalInText(ret.data.text);
           const parsed = parseReceiptText(ret.data.text);
-          
+
           if (grandTotal === 0 && parsed.items.length > 0) {
             grandTotal = parsed.items.reduce((sum, item) => sum + item.price, 0);
           }
@@ -286,7 +311,7 @@ export default function Home() {
       ...prev,
       {
         id: `i-${Date.now()}`,
-        name: `Item Baru ${prev.length + 1}`,
+        name: "",
         price: 0,
         assignedTo: people.map((p) => p.id),
       },
@@ -413,7 +438,7 @@ export default function Home() {
   const copySummaryText = () => {
     let text = `🧾 RINCIAN PATUNGAN\n`;
     text += `      Total Tagihan: ${formatRupiah(activeGrandTotal)}\n`;
-    text += `----------------------------------------\n\n`;
+    text += `------------------------------\n\n`;
 
     if (splitMode === "bundle") {
       text += `Dibagi untuk ${people.length} orang: ${formatRupiah(bundleSharePerPerson)} / orang\n\n`;
@@ -467,7 +492,7 @@ export default function Home() {
 
     if (validAccounts.length > 0) {
       text = text.trimEnd() + "\n\n";
-      text += `----------------------------------------\n`;
+      text += `------------------------------\n`;
       text += `💳 Informasi Pembayaran:\n`;
       validAccounts.forEach((acc) => {
         let accLine = `   - `;
@@ -540,10 +565,10 @@ export default function Home() {
                 setSelectedImages([]);
                 setShowScanModal(true);
               }}
-              className="h-10 px-3.5 rounded-xl bg-emerald-600 active:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-transform cursor-pointer"
+              className="h-10 px-3 sm:px-3.5 rounded-xl bg-emerald-600 active:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-transform cursor-pointer"
             >
               <Camera className="w-4 h-4" />
-              <span>Pindai Struk</span>
+              <span className="hidden sm:inline">Pindai Struk</span>
             </button>
 
             <button
@@ -602,10 +627,10 @@ export default function Home() {
               <button
                 type="button"
                 onClick={addPerson}
-                className="text-xs text-emerald-400 active:text-emerald-300 flex items-center gap-1 font-medium px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[36px]"
+                className="text-xs text-emerald-400 active:text-emerald-300 flex items-center gap-1 font-medium px-2 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[36px]"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Tambahkan</span>
+                <span className="hidden sm:inline">Tambahkan</span>
               </button>
             </div>
 
@@ -650,7 +675,7 @@ export default function Home() {
           {splitMode === "bundle" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
               <div>
-                <h2 className="text-sm font-semibold text-slate-200">Total Biaya (Bundle)</h2>
+                <h2 className="text-sm font-semibold text-slate-200">Total Biaya</h2>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Masukkan total biaya keseluruhan untuk dibagi rata
                 </p>
@@ -702,10 +727,10 @@ export default function Home() {
                     type="button"
                     onClick={addDeduction}
                     disabled={people.length === 0}
-                    className="text-xs text-emerald-400 active:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
+                    className="text-xs text-emerald-400 active:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium px-2 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
                   >
-                    <Minus className="w-3.5 h-3.5" />
-                    <span>Pengurangan</span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Pengurangan</span>
                   </button>
                 </div>
 
@@ -744,7 +769,7 @@ export default function Home() {
 
                         {/* Amount Input */}
                         <div className="flex items-center gap-2">
-                          <div className="relative w-full sm:w-28 shrink-0">
+                          <div className="relative flex-1 sm:w-28 sm:flex-none">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-red-400 text-xs font-semibold pointer-events-none">-Rp</span>
                             <input
                               type="text"
@@ -790,11 +815,10 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={addItem}
-                    className="h-9 px-3.5 rounded-xl bg-emerald-600 active:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    className="h-9 px-2.5 sm:px-3.5 rounded-xl bg-emerald-600 active:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span className="hidden sm:inline">Tambah Item</span>
-                    <span className="sm:hidden">Tambah</span>
                   </button>
                 </div>
               </div>
@@ -814,36 +838,36 @@ export default function Home() {
 
               {!isScanning && (
                 <div className="space-y-3">
-                  {items.map((it) => (
+                  {items.map((it, index) => (
                     <div
                       key={it.id}
                       className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2.5"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium min-w-0">
                         <input
                           type="text"
                           value={it.name}
                           onChange={(e) => updateItem(it.id, "name", e.target.value)}
-                          className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-100 font-medium focus:outline-none focus:border-emerald-500/60"
-                          placeholder="Nama pesanan"
+                          className="bg-transparent text-slate-200 focus:outline-none flex-1 min-w-0 text-base sm:text-xs font-medium placeholder:text-slate-500/80"
+                          placeholder={`Item Baru ${index + 1}`}
                         />
-                        <div className="relative w-28 shrink-0">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-semibold pointer-events-none">Rp</span>
+                        <div className="flex items-center gap-1 border-l border-slate-800/60 pl-2 shrink-0">
+                          <span className="text-slate-500 text-xs font-semibold pointer-events-none">Rp</span>
                           <input
                             type="text"
                             inputMode="numeric"
                             value={formatNumberWithDots(it.price)}
                             onChange={(e) => updateItem(it.id, "price", parseNumberFromDots(e.target.value))}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-2 py-2 text-base sm:text-xs text-right text-slate-100 font-semibold focus:outline-none focus:border-emerald-500/60"
+                            className="bg-transparent text-slate-200 focus:outline-none w-20 text-right text-base sm:text-xs font-semibold placeholder:text-slate-500/80"
                             placeholder="0"
                           />
                         </div>
                         <button
                           type="button"
                           onClick={() => setItems((prev) => prev.filter((i) => i.id !== it.id))}
-                          className="text-slate-500 hover:text-red-400 p-2 cursor-pointer shrink-0"
+                          className="text-slate-500 hover:text-red-400 p-1 cursor-pointer shrink-0"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -892,10 +916,10 @@ export default function Home() {
                       type="button"
                       onClick={addDeduction}
                       disabled={people.length === 0}
-                      className="text-xs text-emerald-400 active:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
+                      className="text-xs text-emerald-400 active:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-medium px-2 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
                     >
-                      <Minus className="w-3.5 h-3.5" />
-                      <span>Pengurangan</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Pengurangan</span>
                     </button>
                   </div>
 
@@ -934,7 +958,7 @@ export default function Home() {
 
                           {/* Amount Input */}
                           <div className="flex items-center gap-2">
-                            <div className="relative w-full sm:w-28 shrink-0">
+                            <div className="relative flex-1 sm:w-28 sm:flex-none">
                               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-red-400 text-xs font-semibold pointer-events-none">-Rp</span>
                               <input
                                 type="text"
@@ -967,24 +991,24 @@ export default function Home() {
           {/* Rekening Pembayaran */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                   <CreditCard className="w-4 h-4" />
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-slate-200">Info Rekening Penerima</h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Masukkan informasi rekening tujuan transfer (opsional)
+                    Masukkan informasi rekening tujuan transfer
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={addPaymentAccount}
-                className="text-xs text-emerald-400 active:text-emerald-300 flex items-center gap-1.5 font-medium px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
+                className="text-xs text-emerald-400 active:text-emerald-300 flex items-center gap-1.5 font-medium px-2 sm:px-3 py-1.5 rounded-xl bg-emerald-500/10 active:bg-emerald-500/20 cursor-pointer min-h-[32px] transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Tambah</span>
+                <span className="hidden sm:inline">Tambah</span>
               </button>
             </div>
 
@@ -1058,11 +1082,11 @@ export default function Home() {
                         Nomor Rekening / HP
                       </label>
                       <input
-                        type="text"
+                        type="number"
                         value={acc.accountNumber}
                         onChange={(e) => updatePaymentAccount(acc.id, "accountNumber", e.target.value)}
                         placeholder="Contoh: 123456789"
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500/60 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500/80 focus:outline-none transition-all"
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500/60 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500/80 focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1188,10 +1212,10 @@ export default function Home() {
         <button
           type="button"
           onClick={copySummaryText}
-          className="h-11 px-5 rounded-xl bg-emerald-500 active:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 cursor-pointer"
+          className="h-11 px-4 sm:px-5 rounded-xl bg-emerald-500 active:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 cursor-pointer"
         >
           {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-          <span>{copied ? "Tersalin!" : "Salin Rincian"}</span>
+          <span className="hidden sm:inline">{copied ? "Tersalin!" : "Salin Rincian"}</span>
         </button>
       </div>
 
@@ -1231,7 +1255,7 @@ export default function Home() {
       {showScanModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col max-h-[85vh]">
-            
+
             {/* Modal Header */}
             <div className="flex justify-between items-center border-b border-slate-800 pb-4">
               <div>
@@ -1286,11 +1310,10 @@ export default function Home() {
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{
-                      width: `${
-                        scanProgress
-                          ? (scanProgress.current / scanProgress.total) * 100
-                          : 0
-                      }%`,
+                      width: `${scanProgress
+                        ? (scanProgress.current / scanProgress.total) * 100
+                        : 0
+                        }%`,
                     }}
                   />
                 </div>
@@ -1344,7 +1367,7 @@ export default function Home() {
                     className="flex-1 h-11 px-4 rounded-xl bg-slate-800 active:bg-slate-700 hover:text-slate-100 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer transition-colors"
                   >
                     <Camera className="w-4 h-4 text-emerald-400" />
-                    <span>Ambil Foto</span>
+                    <span className="hidden sm:inline">Ambil Foto</span>
                   </button>
                   <button
                     type="button"
@@ -1352,7 +1375,7 @@ export default function Home() {
                     className="flex-1 h-11 px-4 rounded-xl bg-slate-800 active:bg-slate-700 hover:text-slate-100 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer transition-colors"
                   >
                     <Upload className="w-4 h-4 text-emerald-400" />
-                    <span>Upload File</span>
+                    <span className="hidden sm:inline">Upload File</span>
                   </button>
                   <input
                     ref={fileInputRef}
@@ -1381,7 +1404,7 @@ export default function Home() {
                     className="h-11 px-6 rounded-xl bg-emerald-500 active:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Proses {selectedImages.length} Struk</span>
+                    <span className="hidden sm:inline">Proses {selectedImages.length} Struk</span>
                   </button>
                 )}
               </div>
