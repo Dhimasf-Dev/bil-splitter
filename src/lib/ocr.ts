@@ -13,13 +13,24 @@ export interface OCRResult {
  * Parses numeric price strings from Indonesian receipts (e.g. "Rp 45.000", "45.000", "150000", "25,000.00")
  */
 function parsePriceValue(str: string): number {
-  // Strip "Rp", "RP", "rp", and all internal spaces
-  let cleaned = str.replace(/rp/gi, "").replace(/\s+/g, "").trim();
+  // Strip currency prefixes: "Rp", "RP", "rp", "IDR", "idr", "Idr"
+  let cleaned = str.replace(/rp|idr/gi, "").trim();
+
+  // Drop trailing cents/decimals like ".00", ",00", " 00" if they are at the end
+  cleaned = cleaned.replace(/[\s.,]00$/, "");
+
+  // Remove all internal spaces
+  cleaned = cleaned.replace(/\s+/g, "");
 
   // Handle dot thousands separator vs comma decimal (e.g. 50.000 or 50.000,00)
   if (cleaned.includes(".") && cleaned.includes(",")) {
-    // Standard IDR 50.000,00
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    if (cleaned.indexOf(".") < cleaned.indexOf(",")) {
+      // Indonesian style: 500.000,00 -> remove dots, replace comma with dot
+      cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    } else {
+      // US/International style: 500,000.00 -> remove commas, keep dot
+      cleaned = cleaned.replace(/,/g, "");
+    }
   } else if (cleaned.includes(".")) {
     // Check if dot is thousands separator (e.g. 50.000 or 150.000)
     const parts = cleaned.split(".");
@@ -31,6 +42,9 @@ function parsePriceValue(str: string): number {
     const parts = cleaned.split(",");
     if (parts[parts.length - 1].length === 3) {
       cleaned = cleaned.replace(/,/g, "");
+    } else {
+      // It is a decimal comma (e.g. 500,50)
+      cleaned = cleaned.replace(",", ".");
     }
   }
 
@@ -50,8 +64,8 @@ export function parseReceiptText(text: string): OCRResult {
   let tip = 0;
   let discount = 0;
 
-  // Match Rupiah formats allowing spaces after dot/comma: Rp 45.000, Rp45000, 45.000, 150,000, 25000
-  const priceRegexSource = /(?:Rp\.?|RP\.?|rp\.?)?\s*(?:[0-9]{1,3}(?:[.,]\s*[0-9]{3})+|[0-9]{4,})/i.source;
+  // Match currency formats allowing spaces after dot/comma/cents: Rp 45.000, Rp45000, IDR 500,000 00, 25000
+  const priceRegexSource = /(?:Rp\.?|rp\.?|idr\.?)?\s*(?:[0-9]{1,3}(?:[.,]\s*[0-9]{3})+|[0-9]{4,})(?:\s*[., ]\s*[0-9]{2})?/i.source;
   const priceRegexGlobal = new RegExp(priceRegexSource, "gi");
 
   lines.forEach((line, index) => {
@@ -159,7 +173,7 @@ export function parseReceiptText(text: string): OCRResult {
  */
 export function findTotalInText(text: string): number {
   const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-  const priceRegexSource = /(?:Rp\.?|RP\.?|rp\.?)?\s*(?:[0-9]{1,3}(?:[.,]\s*[0-9]{3})+|[0-9]{4,})/i.source;
+  const priceRegexSource = /(?:Rp\.?|rp\.?|idr\.?)?\s*(?:[0-9]{1,3}(?:[.,]\s*[0-9]{3})+|[0-9]{4,})(?:\s*[., ]\s*[0-9]{2})?/i.source;
   const priceRegexGlobal = new RegExp(priceRegexSource, "gi");
 
   // Keywords indicative of the grand total, ordered by specificity/likelihood
@@ -173,7 +187,8 @@ export function findTotalInText(text: string): number {
     "net total",
     "jumlah total",
     "total akhir",
-    "grandtotal"
+    "grandtotal",
+    "amount"
   ];
 
   const secondaryKeywords = [
@@ -183,23 +198,34 @@ export function findTotalInText(text: string): number {
     "harga jual"
   ];
 
-  const reversedLines = [...lines].reverse();
-
   // 1st pass: Look for lines containing primary keywords
-  for (const line of reversedLines) {
+  for (let idx = lines.length - 1; idx >= 0; idx--) {
+    const line = lines[idx];
     const lower = line.toLowerCase();
     if (primaryKeywords.some((kw) => lower.includes(kw))) {
-      const matches = line.match(priceRegexGlobal);
+      let matches = line.match(priceRegexGlobal);
       if (matches && matches.length > 0) {
         const lastMatch = matches[matches.length - 1];
         const val = parsePriceValue(lastMatch);
         if (val > 0) return val;
       }
+
+      // If no price on the same line, check the next line
+      if (idx + 1 < lines.length) {
+        const nextLine = lines[idx + 1];
+        matches = nextLine.match(priceRegexGlobal);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const val = parsePriceValue(lastMatch);
+          if (val > 0) return val;
+        }
+      }
     }
   }
 
   // 2nd pass: Look for lines containing secondary keywords, avoiding subtotal, discount, change (kembali)
-  for (const line of reversedLines) {
+  for (let idx = lines.length - 1; idx >= 0; idx--) {
+    const line = lines[idx];
     const lower = line.toLowerCase();
     if (
       secondaryKeywords.some((kw) => lower.includes(kw)) &&
@@ -210,24 +236,47 @@ export function findTotalInText(text: string): number {
       !lower.includes("kembali") &&
       !lower.includes("change")
     ) {
-      const matches = line.match(priceRegexGlobal);
+      let matches = line.match(priceRegexGlobal);
       if (matches && matches.length > 0) {
         const lastMatch = matches[matches.length - 1];
         const val = parsePriceValue(lastMatch);
         if (val > 0) return val;
       }
+
+      // If no price on the same line, check the next line
+      if (idx + 1 < lines.length) {
+        const nextLine = lines[idx + 1];
+        matches = nextLine.match(priceRegexGlobal);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const val = parsePriceValue(lastMatch);
+          if (val > 0) return val;
+        }
+      }
     }
   }
 
   // 3rd pass: Fallback to any line containing "total" or "jumlah" or "bayar" with a price
-  for (const line of reversedLines) {
+  for (let idx = lines.length - 1; idx >= 0; idx--) {
+    const line = lines[idx];
     const lower = line.toLowerCase();
     if (lower.includes("total") || lower.includes("jumlah") || lower.includes("bayar")) {
-      const matches = line.match(priceRegexGlobal);
+      let matches = line.match(priceRegexGlobal);
       if (matches && matches.length > 0) {
         const lastMatch = matches[matches.length - 1];
         const val = parsePriceValue(lastMatch);
         if (val > 0) return val;
+      }
+
+      // If no price on the same line, check the next line
+      if (idx + 1 < lines.length) {
+        const nextLine = lines[idx + 1];
+        matches = nextLine.match(priceRegexGlobal);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const val = parsePriceValue(lastMatch);
+          if (val > 0) return val;
+        }
       }
     }
   }
