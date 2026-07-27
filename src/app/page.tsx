@@ -737,7 +737,11 @@ export default function Home() {
 
                 {deductions.length > 0 && (
                   <div className="space-y-3">
-                    {deductions.map((d, index) => (
+                    {deductions
+                      .map((d, index) => ({ d, index }))
+                      .slice()
+                      .reverse()
+                      .map(({ d, index }) => (
                       <div
                         key={d.id}
                         className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-950/60 border border-slate-800/60 rounded-xl p-3"
@@ -839,7 +843,11 @@ export default function Home() {
 
               {!isScanning && (
                 <div className="space-y-3">
-                  {items.map((it, index) => (
+                  {items
+                    .map((it, index) => ({ it, index }))
+                    .slice()
+                    .reverse()
+                    .map(({ it, index }) => (
                     <div
                       key={it.id}
                       className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2.5"
@@ -926,7 +934,11 @@ export default function Home() {
 
                   {deductions.length > 0 && (
                     <div className="space-y-3">
-                      {deductions.map((d, index) => (
+                      {deductions
+                        .map((d, index) => ({ d, index }))
+                        .slice()
+                        .reverse()
+                        .map(({ d, index }) => (
                         <div
                           key={d.id}
                           className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-950/60 border border-slate-800/60 rounded-xl p-3"
