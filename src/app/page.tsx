@@ -404,11 +404,12 @@ export default function Home() {
   const itemizedSummaries: BillSummary[] = people.map((p, index) => {
     let pSubtotal = 0;
     const pItems: { name: string; sharePrice: number }[] = [];
-    items.forEach((it) => {
+    items.forEach((it, itIdx) => {
       if (it.assignedTo.includes(p.id)) {
         const share = it.price / it.assignedTo.length;
         pSubtotal += share;
-        pItems.push({ name: it.name, sharePrice: share });
+        const displayName = it.name.trim() || `Item ${itIdx + 1}`;
+        pItems.push({ name: displayName, sharePrice: share });
       }
     });
 
@@ -437,8 +438,8 @@ export default function Home() {
   // Reliable Clipboard Copy for Mobile
   const copySummaryText = () => {
     let text = `🧾 RINCIAN PATUNGAN\n`;
-    text += `      Total Tagihan: ${formatRupiah(activeGrandTotal)}\n`;
-    text += `------------------------------\n\n`;
+    text += `      ${formatRupiah(activeGrandTotal)}\n`;
+    text += `------------------------\n\n`;
 
     if (splitMode === "bundle") {
       text += `Dibagi untuk ${people.length} orang: ${formatRupiah(bundleSharePerPerson)} / orang\n\n`;
@@ -492,7 +493,7 @@ export default function Home() {
 
     if (validAccounts.length > 0) {
       text = text.trimEnd() + "\n\n";
-      text += `------------------------------\n`;
+      text += `------------------------\n`;
       text += `💳 Informasi Pembayaran:\n`;
       validAccounts.forEach((acc) => {
         let accLine = `   - `;
@@ -849,7 +850,7 @@ export default function Home() {
                           value={it.name}
                           onChange={(e) => updateItem(it.id, "name", e.target.value)}
                           className="bg-transparent text-slate-200 focus:outline-none flex-1 min-w-0 text-base sm:text-xs font-medium placeholder:text-slate-500/80"
-                          placeholder={`Item Baru ${index + 1}`}
+                          placeholder={`Item ${index + 1}`}
                         />
                         <div className="flex items-center gap-1 border-l border-slate-800/60 pl-2 shrink-0">
                           <span className="text-slate-500 text-xs font-semibold pointer-events-none">Rp</span>
@@ -1215,7 +1216,7 @@ export default function Home() {
           className="h-11 px-4 sm:px-5 rounded-xl bg-emerald-500 active:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/30 cursor-pointer"
         >
           {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-          <span className="hidden sm:inline">{copied ? "Tersalin!" : "Salin Rincian"}</span>
+          <span>{copied ? "Tersalin!" : "Salin"}</span>
         </button>
       </div>
 
